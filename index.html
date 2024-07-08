@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<div v="sample_1"></div>
+<div v="sample_2">
+    <div v="sub1"></div>
+    <div v="sub1"></div>
+    <div v="sub1"></div>
+    <div v="sub1"></div>
+    <div v="sub1"></div>
+    <div v="sub1"></div>
+    <div v="sub1"></div>
+    <div v="sub1"></div>
+</div>
+<button v="button1">Button CLick</button>
+
+<script src="index.js"></script>
+<script>
+const s1 = Dom3.get("sample_1");
+s1.html = "<h1>Sample1 OK</h1>";
+
+const s2 = Dom3.get("sample_2");
+console.log(s2.html);
+
+const s2a = s2.find("sub1");
+s2a.html = "S2a... OK";
+
+console.log(s2a.text);
+
+s2a.first.html = "S2a .... Start!";
+s2a.index(2).html = "S2a .... Active!";
+s2a.last.html = "S2a .... End!";
+
+const btn1 = new Dom3("button1");
+
+btn1.on("click", ()=>{
+    console.log("button1 click .... ok");
+});
+
+setTimeout(()=>{
+    btn1.off();
+    console.log("...out");
+}, 10000);
+</script>
+</body>
+</html>
