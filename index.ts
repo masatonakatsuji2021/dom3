@@ -3,6 +3,7 @@ interface VDCBuffer {
     elements: Array<HTMLElement>,
     eventHandlers : {[event: string] : Array<EventListenerOrEventListenerObject>},
     selector : string,
+    data: {[name : string] : any},
 }
 
 class VDCData {
@@ -19,6 +20,7 @@ class VDCData {
         return str;
     }
 
+    /*
     public static alreadySelector(selector : string | Array<HTMLElement>) : VDCBuffer {
         const c = Object.keys(this.buffers);
         let already : VDCBuffer;
@@ -41,34 +43,25 @@ class VDCData {
 
         return already;
     }
+    */
 
     public static searchSelector(selector : string | Array<HTMLElement>) : VDCBuffer {
         let buffer : VDCBuffer;
         if (typeof selector == "string") {
             // selector is string...
+            /*
             const already = this.alreadySelector(selector);
             if (already) buffer = already;
-        
-            let selectorStr : string = null;
-            if (typeof selector == "string") {
-                selectorStr = selector;                
-            }
+            */
     
-            if (!buffer){
-                buffer = {
-                    id: this.uniqId(),
-                    elements: [],
-                    eventHandlers: {},
-                    selector : selectorStr,
-                };
-            }
-            else {
-                buffer.elements.forEach((el : HTMLElement, index: number) => {
-                    const exists = document.body.contains(el);
-                    if(!exists) buffer.elements.splice(index,1);
-                });
-            }
-    
+            buffer = {
+                id: this.uniqId(),
+                elements: [],
+                eventHandlers: {},
+                selector : selector,
+                data: {},
+            };
+ 
             let addEls = document.querySelectorAll("[v=\"" + selector + "\"]");
             if (addEls.length){
                 addEls.forEach((el : HTMLElement) => {
@@ -85,6 +78,7 @@ class VDCData {
                 elements: els,
                 eventHandlers: {},
                 selector : null,
+                data: {},
             };
         }
         this.buffers[buffer.id] = buffer;
@@ -98,6 +92,7 @@ class VDCData {
             elements: [ element ],
             eventHandlers: {},
             selector : null,
+            data: {},
         };
         this.buffers[buffer.id] = buffer;
         return buffer;
@@ -263,11 +258,7 @@ class VirtualDomControl {
     }
 
     public get html() : string {
-        let str : string = "";
-        this.searchEl((el : HTMLElement)=>{
-            str += el.innerHTML;
-        });
-        return str;
+        return this.elFirst.innerHTML;
     }
 
     public set html(content : string) {
@@ -276,12 +267,12 @@ class VirtualDomControl {
         });
     }
 
+    public get outerHtml() : string {
+        return this.elFirst.outerHTML;
+    }
+
     public get text() : string {
-        let str : string = "";
-        this.searchEl((el : HTMLElement)=>{
-            str += el.innerText;
-        });
-        return str;
+        return this.elFirst.innerText;
     }
 
     public set text(content : string) {
@@ -356,11 +347,17 @@ class VirtualDomControl {
     public data(name : string, value : any) : VirtualDomControl;
 
     public data(name : string, value? : any) : VirtualDomControl | any {
-
+        if (value) {
+            VDCData.buffers[this.id].data[name] = value;
+            return this;
+        }
+        else {
+            return VDCData.buffers[this.id].data[name];
+        }
     }
 
     public removeData(name : string) : VirtualDomControl {
-
+        delete VDCData.buffers[this.id].data[name];
         return this;
     }
 
@@ -369,12 +366,23 @@ class VirtualDomControl {
     public attr(name : string, value : string | number | boolean) : VirtualDomControl;
 
     public attr(name : string, value? : string | number | boolean) : VirtualDomControl | any {
-
-
+        if (value) {
+            this.searchEl((el : HTMLElement) => {
+                value =value.toString();
+                el.setAttribute(name, value);
+            });
+        }
+        else {
+            const attr = this.elFirst.attributes[name];
+            if (!attr) return;
+            return attr.value;
+        }
     }
 
     public removeAttr(name : string) : VirtualDomControl {
-
+        this.searchEl((el : HTMLElement) => {
+            el.removeAttribute(name);
+        });
         return this;
     }
 
@@ -383,32 +391,46 @@ class VirtualDomControl {
     public css(name: string, value : string | number) : VirtualDomControl;
     
     public css(name: string, value? : string | number) : VirtualDomControl | any {
-
-
+        if (value) {
+            this.searchEl((el : HTMLElement) => {
+                value =value.toString();
+                el.style[name] = value;
+            });
+        }
+        else {
+            const css = this.elFirst.style[name];
+            return css;
+        }
     }
 
     public removeCss(name : string) : VirtualDomControl {
-
+        this.searchEl((el : HTMLElement) => {
+            el.style[name] = null;
+        });
         return this;
     }
 
-    public get class() : Array<string> {
-
-        return [];
+    public get class() : string {
+        return this.elFirst.classList.toString();
     }
 
     public hasClass(name : string) : boolean {
-
-        return true;
+        return this.elFirst.classList.contains(name);
     }
 
-    public addClass(name : string) : VirtualDomControl {
-
+    public addClass(name : string | Array<string>) : VirtualDomControl {
+        if (typeof name == "string") {
+            name = [ name ];
+        }
+        this.elFirst.classList.add(...name);
         return this;
     }
 
-    public removeClass(name : string) : VirtualDomControl {
-
+    public removeClass(name : string | Array<string>) : VirtualDomControl {
+        if (typeof name == "string") {
+            name = [ name ];
+        }
+        this.elFirst.classList.remove(...name);
         return this;
     }
 
