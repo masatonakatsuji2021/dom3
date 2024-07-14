@@ -1,219 +1,434 @@
-class Dom3Data {
-    public static buffers : {[id : string] : NodeListOf<Element> | Array<Element> } = {};
-    public static eventCallbacks : {[eventName : string] : Dom3EventCallbacks} = {};
+interface VDCBuffer {
+    id : string,
+    elements: Array<HTMLElement>,
+    eventHandlers : {[event: string] : Array<EventListenerOrEventListenerObject>},
+    selector : string,
 }
 
-type Dom3EventCallbacks = {
-    [id : string]: Array<(this: Element, ev: Event) => any>;
-};
+class VDCData {
+    public static buffers : {[id : string] : VDCBuffer} = {};
+    public static bufferIndexs : {[selector : string] : string} = {};
 
-class Dom3 {
-
-    private id : string;
-
-    public constructor(selector : string | Array<Element>){
-        this.id = Dom3.makeId();
-        if (typeof selector == "string") {
-            const fullSelector = this.selectorConvert(selector);
-            const els = document.querySelectorAll(fullSelector);
-            Dom3Data.buffers[this.id] = els;
-        }
-        else {
-            Dom3Data.buffers[this.id] = selector;
-        }
-
-        this.els((el : HTMLElement) => {
-            el.removeAttribute("v");
-        });
-    }
-
-    private selectorConvert(selector : string) : string {
-        const selectors = selector.split(" ");
-        let fullSelectors :Array<string> = [];
-        for (let n = 0 ; n < selectors.length ; n++) {
-            fullSelectors.push("[v=\"" + selector + "\"]");
-        }
-        const fullSelector = fullSelectors.join(" ");
-        return fullSelector;
-    }
-
-    public static makeId(){
+    private static uniqId() {
+        const lbn : string = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         let str : string = "";
-        const lbn = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        for (let n = 0 ; n < 64 ; n++) {
-            const word = lbn[Math.round(Math.random() * 10000) % lbn.length];
+        for (let n = 0 ; n < 32 ; n++) {
+            const word = lbn[Math.round(Math.random() * 1000) % lbn.length];
             str += word;
         }
         return str;
     }
 
-    public static get(selector : string) : Dom3 {
-        return new Dom3(selector);
-    }
-
-    public find(selector : string) : Dom3 {
-        const fullSelector = this.selectorConvert(selector);
-        let subEls : Array<Element>=  [];
-        this.els((el : HTMLElement) => {
-            const buffEls = el.querySelectorAll(fullSelector);
-            for (let n = 0 ; n < buffEls.length ; n++) {
-                const buffEl = buffEls[n];
-                subEls.push(buffEl);
+    public static alreadySelector(selector : string | Array<HTMLElement>) : VDCBuffer {
+        const c = Object.keys(this.buffers);
+        let already : VDCBuffer;
+        for(let n = 0 ; n < c.length ; n++){
+            const id = c[n];
+            const buffer = this.buffers[id];
+            if (typeof selector == "string") {
+                // selector is string....
+                if (buffer.selector == selector) {
+                    already = buffer;
+                    break;
+                }    
             }
-        });
+            else {
+                // selector is HTMLElement....
 
-        return new Dom3(subEls);
+               
+            }
+        }
+
+        return already;
     }
 
-    private els(callback : Function) {
-        const els = Dom3Data.buffers[this.id];
-        for (let n = 0 ; n < els.length ; n++){
-            const el = els[n];
-            callback.bind(this)(el);
+    public static searchSelector(selector : string | Array<HTMLElement>) : VDCBuffer {
+        let buffer : VDCBuffer;
+        if (typeof selector == "string") {
+            // selector is string...
+            const already = this.alreadySelector(selector);
+            if (already) buffer = already;
+        
+            let selectorStr : string = null;
+            if (typeof selector == "string") {
+                selectorStr = selector;                
+            }
+    
+            if (!buffer){
+                buffer = {
+                    id: this.uniqId(),
+                    elements: [],
+                    eventHandlers: {},
+                    selector : selectorStr,
+                };
+            }
+            else {
+                buffer.elements.forEach((el : HTMLElement, index: number) => {
+                    const exists = document.body.contains(el);
+                    if(!exists) buffer.elements.splice(index,1);
+                });
+            }
+    
+            let addEls = document.querySelectorAll("[v=\"" + selector + "\"]");
+            if (addEls.length){
+                addEls.forEach((el : HTMLElement) => {
+                    buffer.elements.push(el);
+                    el.removeAttribute("v");
+                });
+            }     
+        }
+        else {
+            // selector is HTMLElements...
+            let els : Array<HTMLElement> = selector;
+            buffer = {
+                id: this.uniqId(),
+                elements: els,
+                eventHandlers: {},
+                selector : null,
+            };
+        }
+        this.buffers[buffer.id] = buffer;
+        return buffer;
+    }
+
+    public static create() : VDCBuffer{
+        const element = document.createElement("div");
+        let buffer : VDCBuffer = {
+            id: this.uniqId(),
+            elements: [ element ],
+            eventHandlers: {},
+            selector : null,
+        };
+        this.buffers[buffer.id] = buffer;
+        return buffer;
+    }
+
+    public static addEvent(id : string, event:  string, handler : EventListenerOrEventListenerObject) {
+        if(!this.buffers[id][event]) this.buffers[id][event] = [];
+        this.buffers[id][event].push(handler);
+    }
+
+    public static refresh() {
+        const c = Object.keys(this.buffers);
+        for(let n =0 ; n < c.length ; n++) {
+            const id = c[n];
+            const buffer = this.buffers[id];
+            
+            buffer.elements.forEach((el : HTMLElement, index: number) => {
+                const exists = document.body.contains(el);
+                if(!exists) {
+                    
+                    // removeEventListner....
+                    /*
+                    const e_ = Object.keys(buffer.eventHandlers);
+                    for (let n2 = 0 ; n2 < e_.length ; n2++) {
+                        const event = e_[n2];
+                        const handlers = buffer.eventHandlers[event];
+                        handlers.forEach((handler : EventListenerOrEventListenerObject) => {
+                            buffer.elements.forEach((el : HTMLElement) => {
+                                    el.removeEventListener(event, handler);
+                                });
+                            });
+                    }*
+                    */
+                    
+                    buffer.elements.splice(index,1);
+                }
+            });
+
+            if (!buffer.elements.length){
+
+                    // removeEventListner....
+                    /*
+                    const e_ = Object.keys(buffer.eventHandlers);
+                    for (let n2 = 0 ; n2 < e_.length ; n2++) {
+                        const event = e_[n2];
+                        const handlers = buffer.eventHandlers[event];
+                        handlers.forEach((handler : EventListenerOrEventListenerObject) => {
+                            buffer.elements.forEach((el : HTMLElement) => {
+                                    el.removeEventListener(event, handler);
+                                });
+                            });
+                    }
+                    */
+                delete this.buffers[id];
+            }
         }
     }
+}
 
-    private get el0() {
-        const els = Dom3Data.buffers[this.id];
-        return els[0];
+class VirtualDomControl {
+
+    private id : string;
+
+    public constructor(selector? : string | Array<HTMLElement>) {
+        let buffer : VDCBuffer;
+        if (selector) {
+            buffer = VDCData.searchSelector(selector);
+        }
+        else {
+            buffer = VDCData.create();
+        }
+        this.id = buffer.id;
+    }
+
+    public static create(htmlContent?: string) : VirtualDomControl {
+        const res = new VirtualDomControl();
+        if (htmlContent) res.html = htmlContent;
+        return res;
+    }
+
+    public static refresh() {
+        VDCData.refresh();
+    }
+
+    /**
+     * ***find*** : 
+     * @param selector ]
+     * @returns 
+     */
+    public find(selector : string) : VirtualDomControl {
+        let els : Array<HTMLElement> = [];
+        this.searchEl((el : HTMLElement)=>{
+            const subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
+            subEls.forEach((el : HTMLElement) => {
+                els.push(el);
+                el.removeAttribute("v");
+            });
+        })
+        return new VirtualDomControl(els);
+    }
+
+    /**
+     * ***fildAll*** : 
+     * @returns 
+     */
+    public findAll() : {[selector : string] : VirtualDomControl} {
+        let elementMap : {[selector : string] :Array<HTMLElement>} = {};
+        let els : Array<HTMLElement> = [];
+        this.searchEl((el : HTMLElement)=>{
+            const subEls = el.querySelectorAll("[v]");
+            subEls.forEach((el : HTMLElement) => {
+                const selector = el.attributes["v"].value;
+                if (!elementMap[selector]) elementMap[selector] = [];
+                elementMap[selector].push(el);
+                el.removeAttribute("v");
+            });
+        });
+
+        let result = {};
+        const c = Object.keys(elementMap);
+        for (let n = 0 ; n < c.length ; n++) {
+            const selector = c[n];
+            const els = elementMap[selector];
+            result[selector] = new VirtualDomControl(els);
+        }
+        return result;
+    }
+
+    public index(index : number) : VirtualDomControl {
+        const els = [this.elements[index]];
+        return new VirtualDomControl(els);
+    }
+
+    public get elements() : Array<HTMLElement> {
+        if (!VDCData.buffers[this.id]) return;
+        return VDCData.buffers[this.id].elements;
     }
 
     public get length() : number {
-        const els = Dom3Data.buffers[this.id];
-        return els.length;
+        return this.elements.length;
     }
 
-    public index(index : number) : Dom3 {
-        const els = Dom3Data.buffers[this.id];
-        const els2 = [ els[index] ];
-        return new Dom3(els2);
+    private get elFirst() : HTMLElement {
+        return this.elements[0];
     }
 
-    public get first() : Dom3 {
-        return this.index(0);
+    private get elLast() : HTMLElement {
+        return this.elements[this.elements.length - 1];
     }
 
-    public get last() : Dom3 {
-        return this.index(this.length - 1);
+    private searchEl(handle : (el : HTMLElement)=>void) {
+        this.elements.forEach(handle);
     }
 
-    public set html(htmlText : string) {
-        this.els((el : HTMLElement) => {
-            el.innerHTML = htmlText;
-        });
+    public get first() : VirtualDomControl {
+        const els = [ this.elFirst ];
+        return new VirtualDomControl(els);
+    }
+
+    public get last() : VirtualDomControl {
+        const els = [ this.elLast ];
+        return new VirtualDomControl(els);
     }
 
     public get html() : string {
-        return this.el0.innerHTML;
+        let str : string = "";
+        this.searchEl((el : HTMLElement)=>{
+            str += el.innerHTML;
+        });
+        return str;
     }
 
-    public set text(text : string) {
-        this.els((el : HTMLElement) => {
-            el.innerText = text;
+    public set html(content : string) {
+        this.searchEl((el : HTMLElement)=>{
+            el.innerHTML = content;
         });
     }
 
-    public get text() : string  {
-        // @ts-ignore
-        return this.el0.innerText;
+    public get text() : string {
+        let str : string = "";
+        this.searchEl((el : HTMLElement)=>{
+            str += el.innerText;
+        });
+        return str;
     }
 
-    public styles(styles : {[name : string] : string | number | null }) : Dom3 {
-        const c = Object.keys(styles);
-        for (let n = 0 ; n < c.length ; n++) {
-            const name = c[n];
-            const value = styles[name];
-            this.style(name , value);
-        }
-        return this;
+    public set text(content : string) {
+        this.searchEl((el : HTMLElement)=>{
+            el.innerText = content;
+        });
     }
-    
-    public style(name: string, value: string | number | null) : Dom3 {
-        this.els((el : HTMLElement) => {
-            el.style[name] = value;
+
+    public clear() : VirtualDomControl {
+        this.searchEl((el : HTMLElement)=>{
+            el.innerHTML = "";
         });
         return this;
     }
 
-    public attr(name : string) : any;
+    public add(content : string) : VirtualDomControl;
 
-    public attr(name : string, value : string | number) : Dom3;
+    public add(content : VirtualDomControl) : VirtualDomControl;
 
-    public attr(name : string, value? : string | number) : Dom3 | any {
-        if (value) {
-            this.els((el : HTMLElement) => {
-                el.setAttribute(name, value.toString());
-            });
-            return this;
-        }
+    public add(content : string, position: InsertPosition) : VirtualDomControl;
+
+    public add(content : VirtualDomControl, position: InsertPosition) : VirtualDomControl;
+
+    public add(content : string | VirtualDomControl, position?: InsertPosition) : VirtualDomControl {
+        let addContent : string;
+        if (typeof content == "string") {
+            addContent = content;
+        } 
         else {
-            return this.el0.attributes[name].value
+            addContent = content.html;
         }
-    }
 
-    public removeAttr(name : string) : Dom3 {
-        this.els((el : HTMLElement) => {
-            el.removeAttribute(name);
+        if(!position) position = "beforeend";
+        this.searchEl((el : HTMLElement)=>{
+            el.insertAdjacentHTML(position, addContent);
         });
         return this;
     }
 
-    public addClass(className : string) : Dom3 {
-        this.els((el : HTMLElement) => {
-            el.classList.add(className);
+    public remove() : void {
+        this.searchEl((el : HTMLElement) => {
+            el.remove();
         });
-        return this;
     }
 
-    public removeClass(className : string) : Dom3 {
-        this.els((el : HTMLElement) => {
-            el.classList.remove(className);
+    public on(event : keyof WindowEventMap, listener : EventListenerOrEventListenerObject) : VirtualDomControl {
+        this.searchEl((el : HTMLElement) => {
+            el.addEventListener(event, listener);
         });
+        VDCData.addEvent(this.id, event, listener);
         return this;
     }
 
-    public isClass(className : string) : boolean {
-        return this.el0.classList.contains(className);
+    public set onClick (listener : EventListenerOrEventListenerObject) {
+        this.on("click", listener);        
     }
 
-    public on(event : keyof DocumentEventMap, callback : (e) => void ) : Dom3  {
-        const fullCallback = callback.bind(this);
-        this.els((el : HTMLElement) => {
-            el.addEventListener(event, fullCallback);
-        });
-        if (!Dom3Data.eventCallbacks[event]) Dom3Data.eventCallbacks[event] = {}; 
-        if (!Dom3Data.eventCallbacks[event][this.id]) Dom3Data.eventCallbacks[event][this.id] = [];
-        Dom3Data.eventCallbacks[event][this.id].push(fullCallback);
+    public set onFocus (listener : EventListenerOrEventListenerObject) {
+        this.on("focus", listener);       
+    }
+
+    public set onChange (listener : EventListenerOrEventListenerObject) {
+        this.on("change", listener);        
+    }
+
+    public set onDblclick (listener : EventListenerOrEventListenerObject) {
+        this.on("dblclick", listener);        
+    }
+
+    public data(name : string) : any;
+
+    public data(name : string, value : any) : VirtualDomControl;
+
+    public data(name : string, value? : any) : VirtualDomControl | any {
+
+    }
+
+    public removeData(name : string) : VirtualDomControl {
+
         return this;
     }
 
-    public off() : Dom3;
+    public attr(name : string) : string | number | boolean;
 
-    public off(event : keyof ElementEventMap) : Dom3;
+    public attr(name : string, value : string | number | boolean) : VirtualDomControl;
 
-    public off(event? : keyof ElementEventMap) : Dom3 {
-        if (event) {
-            if (!Dom3Data.eventCallbacks[event]) return this;
-            if (!Dom3Data.eventCallbacks[event][this.id]) return this;
-            const callbacks = Dom3Data.eventCallbacks[event][this.id];
-            this.els((el : HTMLElement) => {
-                for (let n = 0 ; n < callbacks.length ; n++) {
-                    const callback = callbacks[n];
-                    el.removeEventListener(event, callback);
-                }
-            });
-            delete  Dom3Data.eventCallbacks[event][this.id];
-        }
-        else {
-            const events = Object.keys(Dom3Data.eventCallbacks);
-            for (let n = 0 ; n < events.length ; n++) {
-                const event  = events[n];
-                // @ts-ignore
-                this.off(event);
-            }
-        }
+    public attr(name : string, value? : string | number | boolean) : VirtualDomControl | any {
+
+
+    }
+
+    public removeAttr(name : string) : VirtualDomControl {
+
         return this;
     }
+
+    public css(name: string) : string | number;
+
+    public css(name: string, value : string | number) : VirtualDomControl;
     
+    public css(name: string, value? : string | number) : VirtualDomControl | any {
 
+
+    }
+
+    public removeCss(name : string) : VirtualDomControl {
+
+        return this;
+    }
+
+    public get class() : Array<string> {
+
+        return [];
+    }
+
+    public hasClass(name : string) : boolean {
+
+        return true;
+    }
+
+    public addClass(name : string) : VirtualDomControl {
+
+        return this;
+    }
+
+    public removeClass(name : string) : VirtualDomControl {
+
+        return this;
+    }
+
+    public get value() : string | Array<string | number> | number {
+
+        return "";
+    }
+
+    public set value(value : string | Array<string | number> | number) {
+
+    }
+
+    public resetValue() : VirtualDomControl {
+
+        return this;
+    }
 }
+
+const v = (selector : string) => {
+    return new VirtualDomControl(selector);
+};
+v.create = VirtualDomControl.create;
+v.refresh = VirtualDomControl.refresh;

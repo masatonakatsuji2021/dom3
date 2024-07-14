@@ -13,35 +13,27 @@
     <div v="sub1"></div>
     <div v="sub1"></div>
 </div>
-<button v="button1">Button CLick</button>
+<div v="sample_3"></div>
+<button v="button1">+ ADD</button>
 
 <script src="index.js"></script>
 <script>
-const s1 = Dom3.get("sample_1");
-s1.html = "<h1>Sample1 OK</h1>";
 
-const s2 = Dom3.get("sample_2");
-console.log(s2.html);
+const v2 = v("sample_2");
+const v2a = v2.findAll();
+v2a.sub1.html = "SUB1 TEXT.....";
 
-const s2a = s2.find("sub1");
-s2a.html = "S2a... OK";
+v2a.sub1.first.html = "SUB1 TEXT(FIRST)....";
+v2a.sub1.last.html = "SUB1 TEXT(LAST)....";
+v2a.sub1.index(3).html = "SUB1 TEXT(INDEX=3)....";
 
-console.log(s2a.text);
+const v3 = v("sample_3");
+v3.html = "strt...";
+v3.add("aaaaa....");
+const neo = v.create("<h2>new content html...</h2>");
+v3.add(neo);
 
-s2a.first.html = "S2a .... Start!";
-s2a.index(2).html = "S2a .... Active!";
-s2a.last.html = "S2a .... End!";
-
-const btn1 = new Dom3("button1");
-
-btn1.on("click", ()=>{
-    console.log("button1 click .... ok");
-});
-
-setTimeout(()=>{
-    btn1.off();
-    console.log("...out");
-}, 10000);
+console.log(VDCData.buffers);
 </script>
 </body>
 </html>

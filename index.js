@@ -1,135 +1,326 @@
-class Dom3Data {
-}
-Dom3Data.buffers = {};
-Dom3Data.eventCallbacks = {};
-class Dom3 {
-    constructor(selector) {
-        this.id = Dom3.makeId();
-        if (typeof selector == "string") {
-            const fullSelector = this.selectorConvert(selector);
-            const els = document.querySelectorAll(fullSelector);
-            Dom3Data.buffers[this.id] = els;
-        }
-        else {
-            Dom3Data.buffers[this.id] = selector;
-        }
-        this.els((el) => {
-            el.removeAttribute("v");
-        });
-    }
-    selectorConvert(selector) {
-        const selectors = selector.split(" ");
-        let fullSelectors = [];
-        for (let n = 0; n < selectors.length; n++) {
-            fullSelectors.push("[v=\"" + selector + "\"]");
-        }
-        const fullSelector = fullSelectors.join(" ");
-        return fullSelector;
-    }
-    static makeId() {
-        let str = "";
+class VDCData {
+    static uniqId() {
         const lbn = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        for (let n = 0; n < 64; n++) {
-            const word = lbn[Math.round(Math.random() * 10000) % lbn.length];
+        let str = "";
+        for (let n = 0; n < 32; n++) {
+            const word = lbn[Math.round(Math.random() * 1000) % lbn.length];
             str += word;
         }
         return str;
     }
-    static get(selector) {
-        return new Dom3(selector);
-    }
-    find(selector) {
-        const fullSelector = this.selectorConvert(selector);
-        let subEls = [];
-        this.els((el) => {
-            const buffEls = el.querySelectorAll(fullSelector);
-            for (let n = 0; n < buffEls.length; n++) {
-                const buffEl = buffEls[n];
-                subEls.push(buffEl);
+    static alreadySelector(selector) {
+        const c = Object.keys(this.buffers);
+        let already;
+        for (let n = 0; n < c.length; n++) {
+            const id = c[n];
+            const buffer = this.buffers[id];
+            if (typeof selector == "string") {
+                // selector is string....
+                if (buffer.selector == selector) {
+                    already = buffer;
+                    break;
+                }
             }
-        });
-        return new Dom3(subEls);
+            else {
+                // selector is HTMLElement....
+            }
+        }
+        return already;
     }
-    els(callback) {
-        const els = Dom3Data.buffers[this.id];
-        for (let n = 0; n < els.length; n++) {
-            const el = els[n];
-            callback.bind(this)(el);
+    static searchSelector(selector) {
+        let buffer;
+        if (typeof selector == "string") {
+            // selector is string...
+            const already = this.alreadySelector(selector);
+            if (already)
+                buffer = already;
+            let selectorStr = null;
+            if (typeof selector == "string") {
+                selectorStr = selector;
+            }
+            if (!buffer) {
+                buffer = {
+                    id: this.uniqId(),
+                    elements: [],
+                    eventHandlers: {},
+                    selector: selectorStr,
+                };
+            }
+            else {
+                buffer.elements.forEach((el, index) => {
+                    const exists = document.body.contains(el);
+                    if (!exists)
+                        buffer.elements.splice(index, 1);
+                });
+            }
+            let addEls = document.querySelectorAll("[v=\"" + selector + "\"]");
+            if (addEls.length) {
+                addEls.forEach((el) => {
+                    buffer.elements.push(el);
+                    el.removeAttribute("v");
+                });
+            }
+        }
+        else {
+            // selector is HTMLElements...
+            let els = selector;
+            buffer = {
+                id: this.uniqId(),
+                elements: els,
+                eventHandlers: {},
+                selector: null,
+            };
+        }
+        this.buffers[buffer.id] = buffer;
+        return buffer;
+    }
+    static create() {
+        const element = document.createElement("div");
+        let buffer = {
+            id: this.uniqId(),
+            elements: [element],
+            eventHandlers: {},
+            selector: null,
+        };
+        this.buffers[buffer.id] = buffer;
+        return buffer;
+    }
+    static refresh() {
+        const c = Object.keys(this.buffers);
+        for (let n = 0; n < c.length; n++) {
+            const id = c[n];
+            const buffer = this.buffers[id];
+            buffer.elements.forEach((el, index) => {
+                const exists = document.body.contains(el);
+                if (!exists) {
+                    // removeEventListner....
+                    /*
+                    const e_ = Object.keys(buffer.eventHandlers);
+                    for (let n2 = 0 ; n2 < e_.length ; n2++) {
+                        const event = e_[n2];
+                        const handlers = buffer.eventHandlers[event];
+                        handlers.forEach((handler : EventListenerOrEventListenerObject) => {
+                            buffer.elements.forEach((el : HTMLElement) => {
+                                    el.removeEventListener(event, handler);
+                                });
+                            });
+                    }*
+                    */
+                    buffer.elements.splice(index, 1);
+                }
+            });
+            if (!buffer.elements.length) {
+                // removeEventListner....
+                /*
+                const e_ = Object.keys(buffer.eventHandlers);
+                for (let n2 = 0 ; n2 < e_.length ; n2++) {
+                    const event = e_[n2];
+                    const handlers = buffer.eventHandlers[event];
+                    handlers.forEach((handler : EventListenerOrEventListenerObject) => {
+                        buffer.elements.forEach((el : HTMLElement) => {
+                                el.removeEventListener(event, handler);
+                            });
+                        });
+                }
+                */
+                delete this.buffers[id];
+            }
         }
     }
-    get el0() {
-        const els = Dom3Data.buffers[this.id];
-        return els[0];
+}
+VDCData.buffers = {};
+VDCData.bufferIndexs = {};
+class VirtualDomControl {
+    constructor(selector) {
+        let buffer;
+        if (selector) {
+            buffer = VDCData.searchSelector(selector);
+        }
+        else {
+            buffer = VDCData.create();
+        }
+        this.id = buffer.id;
     }
-    get length() {
-        const els = Dom3Data.buffers[this.id];
-        return els.length;
+    static create(htmlContent) {
+        const res = new VirtualDomControl();
+        if (htmlContent)
+            res.html = htmlContent;
+        return res;
+    }
+    static refresh() {
+        VDCData.refresh();
+    }
+    /**
+     * ***find*** :
+     * @param selector ]
+     * @returns
+     */
+    find(selector) {
+        let els = [];
+        this.searchEl((el) => {
+            const subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
+            subEls.forEach((el) => {
+                els.push(el);
+                el.removeAttribute("v");
+            });
+        });
+        return new VirtualDomControl(els);
+    }
+    /**
+     * ***fildAll*** :
+     * @returns
+     */
+    findAll() {
+        let elementMap = {};
+        let els = [];
+        this.searchEl((el) => {
+            const subEls = el.querySelectorAll("[v]");
+            subEls.forEach((el) => {
+                const selector = el.attributes["v"].value;
+                if (!elementMap[selector])
+                    elementMap[selector] = [];
+                elementMap[selector].push(el);
+                el.removeAttribute("v");
+            });
+        });
+        let result = {};
+        const c = Object.keys(elementMap);
+        for (let n = 0; n < c.length; n++) {
+            const selector = c[n];
+            const els = elementMap[selector];
+            result[selector] = new VirtualDomControl(els);
+        }
+        return result;
     }
     index(index) {
-        const els = Dom3Data.buffers[this.id];
-        const els2 = [els[index]];
-        return new Dom3(els2);
+        const els = [this.elements[index]];
+        return new VirtualDomControl(els);
+    }
+    get elements() {
+        if (!VDCData.buffers[this.id])
+            return;
+        return VDCData.buffers[this.id].elements;
+    }
+    get length() {
+        return this.elements.length;
+    }
+    get elFirst() {
+        return this.elements[0];
+    }
+    get elLast() {
+        return this.elements[this.elements.length - 1];
+    }
+    searchEl(handle) {
+        this.elements.forEach(handle);
     }
     get first() {
-        return this.index(0);
+        const els = [this.elFirst];
+        return new VirtualDomControl(els);
     }
     get last() {
-        return this.index(this.length - 1);
-    }
-    set html(htmlText) {
-        this.els((el) => {
-            el.innerHTML = htmlText;
-        });
+        const els = [this.elLast];
+        return new VirtualDomControl(els);
     }
     get html() {
-        return this.el0.innerHTML;
+        let str = "";
+        this.searchEl((el) => {
+            str += el.innerHTML;
+        });
+        return str;
     }
-    set text(text) {
-        this.els((el) => {
-            // @ts-ignore
-            el.innerText = text;
+    set html(content) {
+        this.searchEl((el) => {
+            el.innerHTML = content;
         });
     }
     get text() {
-        // @ts-ignore
-        return this.el0.innerText;
-    }
-    on(event, callback) {
-        const fullCallback = callback.bind(this);
-        this.els((el) => {
-            el.addEventListener(event, fullCallback);
+        let str = "";
+        this.searchEl((el) => {
+            str += el.innerText;
         });
-        if (!Dom3Data.eventCallbacks[event])
-            Dom3Data.eventCallbacks[event] = {};
-        if (!Dom3Data.eventCallbacks[event][this.id])
-            Dom3Data.eventCallbacks[event][this.id] = [];
-        Dom3Data.eventCallbacks[event][this.id].push(fullCallback);
+        return str;
+    }
+    set text(content) {
+        this.searchEl((el) => {
+            el.innerText = content;
+        });
+    }
+    clear() {
+        this.searchEl((el) => {
+            el.innerHTML = "";
+        });
         return this;
     }
-    off(event) {
-        if (event) {
-            if (!Dom3Data.eventCallbacks[event])
-                return this;
-            if (!Dom3Data.eventCallbacks[event][this.id])
-                return this;
-            const callbacks = Dom3Data.eventCallbacks[event][this.id];
-            this.els((el) => {
-                for (let n = 0; n < callbacks.length; n++) {
-                    const callback = callbacks[n];
-                    el.removeEventListener(event, callback);
-                }
-            });
-            delete Dom3Data.eventCallbacks[event][this.id];
+    add(content, position) {
+        let addContent;
+        if (typeof content == "string") {
+            addContent = content;
         }
         else {
-            const events = Object.keys(Dom3Data.eventCallbacks);
-            for (let n = 0; n < events.length; n++) {
-                const event = events[n];
-                // @ts-ignore
-                this.off(event);
-            }
+            addContent = content.html;
         }
-        console.log(Dom3Data.eventCallbacks);
+        if (!position)
+            position = "beforeend";
+        this.searchEl((el) => {
+            el.insertAdjacentHTML(position, addContent);
+        });
+        return this;
+    }
+    remove() {
+    }
+    on(event, listener) {
+        return this;
+    }
+    set onClick(listener) {
+        this.on("click", listener);
+    }
+    set onFocus(listener) {
+        this.on("focus", listener);
+    }
+    set onChange(listener) {
+        this.on("change", listener);
+    }
+    set onDblclick(listener) {
+        this.on("dblclick", listener);
+    }
+    data(name, value) {
+    }
+    removeData(name) {
+        return this;
+    }
+    attr(name, value) {
+    }
+    removeAttr(name) {
+        return this;
+    }
+    css(name, value) {
+    }
+    removeCss(name) {
+        return this;
+    }
+    get class() {
+        return [];
+    }
+    hasClass(name) {
+        return true;
+    }
+    addClass(name) {
+        return this;
+    }
+    removeClass(name) {
+        return this;
+    }
+    get value() {
+        return "";
+    }
+    set value(value) {
+    }
+    resetValue() {
         return this;
     }
 }
+const v = (selector) => {
+    return new VirtualDomControl(selector);
+};
+v.create = VirtualDomControl.create;
+v.refresh = VirtualDomControl.refresh;
