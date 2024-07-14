@@ -16,6 +16,10 @@
 <script src="index.js"></script>
 <script>
 const list = v("list");
+console.log(list);
+const list2 = v("list");
+console.log(list2);
+
 const item = v("item");
 const addBtn = v("addBtn");
 
@@ -26,13 +30,13 @@ addBtn.onClick = ()=>{
     const items = stamp.findAll();
     items.name.text = "Name Text...";
     items.code.text = "0123456";
-    items.editBtn.data("index", index);
-    items.editBtn.onClick = () => {
+
+    items.editBtn.data("index", index).onClick = () => {
         const index = items.editBtn.data("index");
         alert("add button click .... ok\nIndex = " + index);
     };
-    items.deleteBtn.data("index", index);
-    items.deleteBtn.onClick = () => {
+
+    items.deleteBtn.data("index", index).onClick = () => {
         const index = items.deleteBtn.data("index");
         alert("delete button click .... ok\nIndex = " + index);
     };
