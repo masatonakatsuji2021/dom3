@@ -22,6 +22,34 @@ class VDCData {
     public static searchSelector(selector : string | Array<HTMLElement>, targetEls? : Array<HTMLElement>) : VDCBuffer {
         let buffer : VDCBuffer;
         let els : Array<HTMLElement> = [];
+
+        if (!targetEls){
+
+            const c = Object.keys(this.buffers);
+            for (let n = 0 ; n < c.length ; n++) {
+                const id = c[n];
+                const buffer = this.buffers[id];
+    
+                if (typeof selector == "string") {
+                    if (selector == buffer.selector){
+                        buffer.elements.forEach((el)=>{
+                            els.push(el);
+                        });
+                    }
+                }
+                else {
+                    selector.forEach((el0)=>{
+                        buffer.elements.forEach((el : HTMLElement) => {
+                            if (el0.contains(el)){
+                                els.push(el);
+                            }
+                        });    
+                    });
+                }
+            }
+        }
+
+
         if (typeof selector == "string") {
             // selector is string...
             if (targetEls) {
@@ -33,7 +61,10 @@ class VDCData {
                 });
             }
             else{
-                els = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
+                const buffs = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
+                buffs.forEach((el : HTMLElement)=>{
+                    els.push(el);
+                });
             }
 
             if (els.length){
@@ -78,13 +109,17 @@ class VDCData {
             const id = c[n];
             const buffer = this.buffers[id];
             
-            buffer.elements.forEach((el : HTMLElement, index: number) => {
+            let newElements = [];
+            buffer.elements.forEach((el : HTMLElement) => {
                 const exists = document.body.contains(el);
-                if(!exists) {
-                    buffer.elements.splice(index,1);
-                }
+                if(exists) newElements.push(el);
             });
+            buffer.elements = newElements;
+        };
 
+        for(let n =0 ; n < c.length ; n++) {
+            const id = c[n];
+            const buffer = this.buffers[id];
             if (!buffer.elements.length){
                 delete this.buffers[id];
             }
@@ -118,7 +153,6 @@ class VirtualDomControl {
         res.html = this.html;
         return res;
     }
-
 
     public static refresh() {
         VDCData.refresh();
@@ -223,7 +257,8 @@ class VirtualDomControl {
     }
 
     public clear() : VirtualDomControl {
-        this.html = "aaa";
+        this.html = "";
+        VirtualDomControl.refresh();
         return this;
     }
 

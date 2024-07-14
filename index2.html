@@ -13,13 +13,10 @@
 <div v="list"></div>
 <button v="addBtn">+ add</button>
 
+<button v="resetBtn">reset Button</button>
 <script src="index.js"></script>
 <script>
 const list = v("list");
-console.log(list);
-const list2 = v("list");
-console.log(list2);
-
 const item = v("item");
 const addBtn = v("addBtn");
 
@@ -36,12 +33,19 @@ addBtn.onClick = ()=>{
         alert("add button click .... ok\nIndex = " + index);
     };
 
+    console.log(items.editBtn);
+
     items.deleteBtn.data("index", index).onClick = () => {
         const index = items.deleteBtn.data("index");
         alert("delete button click .... ok\nIndex = " + index);
     };
-
     list.add(stamp);
+    console.log(VDCData.buffers);
+};
+
+v("resetBtn").onClick = ()=>{
+    list.clear();
+    console.log(VDCData.buffers);
 };
 </script>
 </body>

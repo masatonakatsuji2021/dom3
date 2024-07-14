@@ -11,6 +11,29 @@ class VDCData {
     static searchSelector(selector, targetEls) {
         let buffer;
         let els = [];
+        if (!targetEls) {
+            const c = Object.keys(this.buffers);
+            for (let n = 0; n < c.length; n++) {
+                const id = c[n];
+                const buffer = this.buffers[id];
+                if (typeof selector == "string") {
+                    if (selector == buffer.selector) {
+                        buffer.elements.forEach((el) => {
+                            els.push(el);
+                        });
+                    }
+                }
+                else {
+                    selector.forEach((el0) => {
+                        buffer.elements.forEach((el) => {
+                            if (el0.contains(el)) {
+                                els.push(el);
+                            }
+                        });
+                    });
+                }
+            }
+        }
         if (typeof selector == "string") {
             // selector is string...
             if (targetEls) {
@@ -22,7 +45,10 @@ class VDCData {
                 });
             }
             else {
-                els = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
+                const buffs = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
+                buffs.forEach((el) => {
+                    els.push(el);
+                });
             }
             if (els.length) {
                 els.forEach((el) => {
@@ -64,12 +90,18 @@ class VDCData {
         for (let n = 0; n < c.length; n++) {
             const id = c[n];
             const buffer = this.buffers[id];
-            buffer.elements.forEach((el, index) => {
+            let newElements = [];
+            buffer.elements.forEach((el) => {
                 const exists = document.body.contains(el);
-                if (!exists) {
-                    buffer.elements.splice(index, 1);
-                }
+                if (exists)
+                    newElements.push(el);
             });
+            buffer.elements = newElements;
+        }
+        ;
+        for (let n = 0; n < c.length; n++) {
+            const id = c[n];
+            const buffer = this.buffers[id];
             if (!buffer.elements.length) {
                 delete this.buffers[id];
             }
@@ -185,7 +217,8 @@ class VirtualDomControl {
         });
     }
     clear() {
-        this.html = "aaa";
+        this.html = "";
+        VirtualDomControl.refresh();
         return this;
     }
     add(content, position) {
