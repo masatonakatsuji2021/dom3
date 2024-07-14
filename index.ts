@@ -1,14 +1,13 @@
 interface VDCBuffer {
     id : string,
     elements: Array<HTMLElement>,
-    eventHandlers : {[event: string] : Array<EventListenerOrEventListenerObject>},
-    selector : string,
     data: {[name : string] : any},
+    selector? : string,
 }
 
 class VDCData {
+    
     public static buffers : {[id : string] : VDCBuffer} = {};
-    public static bufferIndexs : {[selector : string] : string} = {};
 
     private static uniqId() {
         const lbn : string = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -20,67 +19,39 @@ class VDCData {
         return str;
     }
 
-    /*
-    public static alreadySelector(selector : string | Array<HTMLElement>) : VDCBuffer {
-        const c = Object.keys(this.buffers);
-        let already : VDCBuffer;
-        for(let n = 0 ; n < c.length ; n++){
-            const id = c[n];
-            const buffer = this.buffers[id];
-            if (typeof selector == "string") {
-                // selector is string....
-                if (buffer.selector == selector) {
-                    already = buffer;
-                    break;
-                }    
-            }
-            else {
-                // selector is HTMLElement....
-
-               
-            }
-        }
-
-        return already;
-    }
-    */
-
-    public static searchSelector(selector : string | Array<HTMLElement>) : VDCBuffer {
+    public static searchSelector(selector : string | Array<HTMLElement>, targetEls? : Array<HTMLElement>) : VDCBuffer {
         let buffer : VDCBuffer;
+        let els : Array<HTMLElement> = [];
         if (typeof selector == "string") {
             // selector is string...
-            /*
-            const already = this.alreadySelector(selector);
-            if (already) buffer = already;
-            */
-    
-            buffer = {
-                id: this.uniqId(),
-                elements: [],
-                eventHandlers: {},
-                selector : selector,
-                data: {},
-            };
- 
-            let addEls = document.querySelectorAll("[v=\"" + selector + "\"]");
-            if (addEls.length){
-                addEls.forEach((el : HTMLElement) => {
-                    buffer.elements.push(el);
+            if (targetEls) {
+                targetEls.forEach((el : HTMLElement) => {
+                    let subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
+                    subEls.forEach((subEl : HTMLElement) => {
+                        els.push(subEl);
+                    });
+                });
+            }
+            else{
+                els = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
+            }
+
+            if (els.length){
+                els.forEach((el : HTMLElement) => {
                     el.removeAttribute("v");
                 });
             }     
         }
         else {
             // selector is HTMLElements...
-            let els : Array<HTMLElement> = selector;
-            buffer = {
-                id: this.uniqId(),
-                elements: els,
-                eventHandlers: {},
-                selector : null,
-                data: {},
-            };
+            els = selector;
         }
+        buffer = {
+            id: this.uniqId(),
+            elements: els,
+            data: {},
+        };
+        if (typeof selector == "string") buffer.selector = selector;
         this.buffers[buffer.id] = buffer;
         return buffer;
     }
@@ -90,8 +61,6 @@ class VDCData {
         let buffer : VDCBuffer = {
             id: this.uniqId(),
             elements: [ element ],
-            eventHandlers: {},
-            selector : null,
             data: {},
         };
         this.buffers[buffer.id] = buffer;
@@ -112,40 +81,11 @@ class VDCData {
             buffer.elements.forEach((el : HTMLElement, index: number) => {
                 const exists = document.body.contains(el);
                 if(!exists) {
-                    
-                    // removeEventListner....
-                    /*
-                    const e_ = Object.keys(buffer.eventHandlers);
-                    for (let n2 = 0 ; n2 < e_.length ; n2++) {
-                        const event = e_[n2];
-                        const handlers = buffer.eventHandlers[event];
-                        handlers.forEach((handler : EventListenerOrEventListenerObject) => {
-                            buffer.elements.forEach((el : HTMLElement) => {
-                                    el.removeEventListener(event, handler);
-                                });
-                            });
-                    }*
-                    */
-                    
                     buffer.elements.splice(index,1);
                 }
             });
 
             if (!buffer.elements.length){
-
-                    // removeEventListner....
-                    /*
-                    const e_ = Object.keys(buffer.eventHandlers);
-                    for (let n2 = 0 ; n2 < e_.length ; n2++) {
-                        const event = e_[n2];
-                        const handlers = buffer.eventHandlers[event];
-                        handlers.forEach((handler : EventListenerOrEventListenerObject) => {
-                            buffer.elements.forEach((el : HTMLElement) => {
-                                    el.removeEventListener(event, handler);
-                                });
-                            });
-                    }
-                    */
                 delete this.buffers[id];
             }
         }
@@ -156,10 +96,10 @@ class VirtualDomControl {
 
     private id : string;
 
-    public constructor(selector? : string | Array<HTMLElement>) {
+    public constructor(selector? : string | Array<HTMLElement>, targetEls? : Array<HTMLElement>) {
         let buffer : VDCBuffer;
         if (selector) {
-            buffer = VDCData.searchSelector(selector);
+            buffer = VDCData.searchSelector(selector, targetEls);
         }
         else {
             buffer = VDCData.create();
@@ -172,6 +112,13 @@ class VirtualDomControl {
         if (htmlContent) res.html = htmlContent;
         return res;
     }
+    
+    public create() : VirtualDomControl {
+        const res = new VirtualDomControl();
+        res.html = this.html;
+        return res;
+    }
+
 
     public static refresh() {
         VDCData.refresh();
@@ -183,41 +130,25 @@ class VirtualDomControl {
      * @returns 
      */
     public find(selector : string) : VirtualDomControl {
-        let els : Array<HTMLElement> = [];
-        this.searchEl((el : HTMLElement)=>{
-            const subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
-            subEls.forEach((el : HTMLElement) => {
-                els.push(el);
-                el.removeAttribute("v");
-            });
-        })
-        return new VirtualDomControl(els);
+        return new VirtualDomControl(selector, this.elements);
     }
 
     /**
      * ***fildAll*** : 
      * @returns 
      */
-    public findAll() : {[selector : string] : VirtualDomControl} {
-        let elementMap : {[selector : string] :Array<HTMLElement>} = {};
-        let els : Array<HTMLElement> = [];
-        this.searchEl((el : HTMLElement)=>{
-            const subEls = el.querySelectorAll("[v]");
-            subEls.forEach((el : HTMLElement) => {
-                const selector = el.attributes["v"].value;
-                if (!elementMap[selector]) elementMap[selector] = [];
-                elementMap[selector].push(el);
-                el.removeAttribute("v");
-            });
-        });
-
+    public findAll(selectors? : Array<string>) : {[selector : string] : VirtualDomControl} {
         let result = {};
-        const c = Object.keys(elementMap);
-        for (let n = 0 ; n < c.length ; n++) {
-            const selector = c[n];
-            const els = elementMap[selector];
-            result[selector] = new VirtualDomControl(els);
-        }
+
+            this.searchEl((el : HTMLElement) => {
+                const childEls = el.querySelectorAll("[v]");
+                childEls.forEach((el2 : HTMLElement) => {
+                    const vname = el2.attributes["v"].value;
+                    const vdc = new VirtualDomControl(vname, this.elements);
+                    result[vname] = vdc;
+                });
+            });    
+        
         return result;
     }
 
@@ -263,6 +194,11 @@ class VirtualDomControl {
 
     public set html(content : string) {
         this.searchEl((el : HTMLElement)=>{
+            if (el.childNodes.length) {
+                el.childNodes.forEach((cel : HTMLElement) => {
+                    el.removeChild(cel);
+                });
+            }
             el.innerHTML = content;
         });
     }
@@ -277,14 +213,17 @@ class VirtualDomControl {
 
     public set text(content : string) {
         this.searchEl((el : HTMLElement)=>{
+            if (el.childNodes.length) {
+                el.childNodes.forEach((cel : HTMLElement) => {
+                    el.removeChild(cel);
+                });
+            }
             el.innerText = content;
         });
     }
 
     public clear() : VirtualDomControl {
-        this.searchEl((el : HTMLElement)=>{
-            el.innerHTML = "";
-        });
+        this.html = "aaa";
         return this;
     }
 
@@ -297,17 +236,24 @@ class VirtualDomControl {
     public add(content : VirtualDomControl, position: InsertPosition) : VirtualDomControl;
 
     public add(content : string | VirtualDomControl, position?: InsertPosition) : VirtualDomControl {
-        let addContent : string;
-        if (typeof content == "string") {
-            addContent = content;
-        } 
-        else {
-            addContent = content.html;
-        }
-
         if(!position) position = "beforeend";
         this.searchEl((el : HTMLElement)=>{
-            el.insertAdjacentHTML(position, addContent);
+            if (typeof content == "string") {
+                el.insertAdjacentHTML(position, content);
+            } 
+            else {
+                content.elements.forEach((el2)=>{
+                    if (position == "beforeend") {
+                        el.append(el2);
+                    }
+                    else if (position == "beforebegin"){
+                        el.before(el2);
+                    }
+                    else if (position == "afterend"){
+                        el.after(el2);
+                    }
+                });
+            }
         });
         return this;
     }
@@ -316,6 +262,9 @@ class VirtualDomControl {
         this.searchEl((el : HTMLElement) => {
             el.remove();
         });
+        VDCData.refresh();
+
+        console.log(VDCData.buffers);
     }
 
     public on(event : keyof WindowEventMap, listener : EventListenerOrEventListenerObject) : VirtualDomControl {

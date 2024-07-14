@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<div style="display:none" v="item">
+    <div v="name"></div>
+    <div v="code"></div>
+    <div>
+        <button v="editBtn">Edit</button>
+        <button v="deleteBtn">Delete</button>
+    </div>
+</div>
+<div v="list"></div>
+<button v="addBtn">+ add</button>
+
+<script src="index.js"></script>
+<script>
+const list = v("list");
+const item = v("item");
+const addBtn = v("addBtn");
+
+let index = 0;
+addBtn.onClick = ()=>{
+    index++;
+    const stamp = item.create();
+    const items = stamp.findAll();
+    items.name.text = "Name Text...";
+    items.code.text = "0123456";
+    items.editBtn.data("index", index);
+    items.editBtn.onClick = () => {
+        const index = items.editBtn.data("index");
+        alert("add button click .... ok\nIndex = " + index);
+    };
+    items.deleteBtn.data("index", index);
+    items.deleteBtn.onClick = () => {
+        const index = items.deleteBtn.data("index");
+        alert("delete button click .... ok\nIndex = " + index);
+    };
+
+    list.add(stamp);
+};
+</script>
+</body>
+</html>

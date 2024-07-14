@@ -8,64 +8,39 @@ class VDCData {
         }
         return str;
     }
-    /*
-    public static alreadySelector(selector : string | Array<HTMLElement>) : VDCBuffer {
-        const c = Object.keys(this.buffers);
-        let already : VDCBuffer;
-        for(let n = 0 ; n < c.length ; n++){
-            const id = c[n];
-            const buffer = this.buffers[id];
-            if (typeof selector == "string") {
-                // selector is string....
-                if (buffer.selector == selector) {
-                    already = buffer;
-                    break;
-                }
-            }
-            else {
-                // selector is HTMLElement....
-
-               
-            }
-        }
-
-        return already;
-    }
-    */
-    static searchSelector(selector) {
+    static searchSelector(selector, targetEls) {
         let buffer;
+        let els = [];
         if (typeof selector == "string") {
             // selector is string...
-            /*
-            const already = this.alreadySelector(selector);
-            if (already) buffer = already;
-            */
-            buffer = {
-                id: this.uniqId(),
-                elements: [],
-                eventHandlers: {},
-                selector: selector,
-                data: {},
-            };
-            let addEls = document.querySelectorAll("[v=\"" + selector + "\"]");
-            if (addEls.length) {
-                addEls.forEach((el) => {
-                    buffer.elements.push(el);
+            if (targetEls) {
+                targetEls.forEach((el) => {
+                    let subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
+                    subEls.forEach((subEl) => {
+                        els.push(subEl);
+                    });
+                });
+            }
+            else {
+                els = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
+            }
+            if (els.length) {
+                els.forEach((el) => {
                     el.removeAttribute("v");
                 });
             }
         }
         else {
             // selector is HTMLElements...
-            let els = selector;
-            buffer = {
-                id: this.uniqId(),
-                elements: els,
-                eventHandlers: {},
-                selector: null,
-                data: {},
-            };
+            els = selector;
         }
+        buffer = {
+            id: this.uniqId(),
+            elements: els,
+            data: {},
+        };
+        if (typeof selector == "string")
+            buffer.selector = selector;
         this.buffers[buffer.id] = buffer;
         return buffer;
     }
@@ -74,8 +49,6 @@ class VDCData {
         let buffer = {
             id: this.uniqId(),
             elements: [element],
-            eventHandlers: {},
-            selector: null,
             data: {},
         };
         this.buffers[buffer.id] = buffer;
@@ -94,48 +67,21 @@ class VDCData {
             buffer.elements.forEach((el, index) => {
                 const exists = document.body.contains(el);
                 if (!exists) {
-                    // removeEventListner....
-                    /*
-                    const e_ = Object.keys(buffer.eventHandlers);
-                    for (let n2 = 0 ; n2 < e_.length ; n2++) {
-                        const event = e_[n2];
-                        const handlers = buffer.eventHandlers[event];
-                        handlers.forEach((handler : EventListenerOrEventListenerObject) => {
-                            buffer.elements.forEach((el : HTMLElement) => {
-                                    el.removeEventListener(event, handler);
-                                });
-                            });
-                    }*
-                    */
                     buffer.elements.splice(index, 1);
                 }
             });
             if (!buffer.elements.length) {
-                // removeEventListner....
-                /*
-                const e_ = Object.keys(buffer.eventHandlers);
-                for (let n2 = 0 ; n2 < e_.length ; n2++) {
-                    const event = e_[n2];
-                    const handlers = buffer.eventHandlers[event];
-                    handlers.forEach((handler : EventListenerOrEventListenerObject) => {
-                        buffer.elements.forEach((el : HTMLElement) => {
-                                el.removeEventListener(event, handler);
-                            });
-                        });
-                }
-                */
                 delete this.buffers[id];
             }
         }
     }
 }
 VDCData.buffers = {};
-VDCData.bufferIndexs = {};
 class VirtualDomControl {
-    constructor(selector) {
+    constructor(selector, targetEls) {
         let buffer;
         if (selector) {
-            buffer = VDCData.searchSelector(selector);
+            buffer = VDCData.searchSelector(selector, targetEls);
         }
         else {
             buffer = VDCData.create();
@@ -148,6 +94,11 @@ class VirtualDomControl {
             res.html = htmlContent;
         return res;
     }
+    create() {
+        const res = new VirtualDomControl();
+        res.html = this.html;
+        return res;
+    }
     static refresh() {
         VDCData.refresh();
     }
@@ -157,40 +108,22 @@ class VirtualDomControl {
      * @returns
      */
     find(selector) {
-        let els = [];
-        this.searchEl((el) => {
-            const subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
-            subEls.forEach((el) => {
-                els.push(el);
-                el.removeAttribute("v");
-            });
-        });
-        return new VirtualDomControl(els);
+        return new VirtualDomControl(selector, this.elements);
     }
     /**
      * ***fildAll*** :
      * @returns
      */
-    findAll() {
-        let elementMap = {};
-        let els = [];
+    findAll(selectors) {
+        let result = {};
         this.searchEl((el) => {
-            const subEls = el.querySelectorAll("[v]");
-            subEls.forEach((el) => {
-                const selector = el.attributes["v"].value;
-                if (!elementMap[selector])
-                    elementMap[selector] = [];
-                elementMap[selector].push(el);
-                el.removeAttribute("v");
+            const childEls = el.querySelectorAll("[v]");
+            childEls.forEach((el2) => {
+                const vname = el2.attributes["v"].value;
+                const vdc = new VirtualDomControl(vname, this.elements);
+                result[vname] = vdc;
             });
         });
-        let result = {};
-        const c = Object.keys(elementMap);
-        for (let n = 0; n < c.length; n++) {
-            const selector = c[n];
-            const els = elementMap[selector];
-            result[selector] = new VirtualDomControl(els);
-        }
         return result;
     }
     index(index) {
@@ -227,6 +160,11 @@ class VirtualDomControl {
     }
     set html(content) {
         this.searchEl((el) => {
+            if (el.childNodes.length) {
+                el.childNodes.forEach((cel) => {
+                    el.removeChild(cel);
+                });
+            }
             el.innerHTML = content;
         });
     }
@@ -238,27 +176,38 @@ class VirtualDomControl {
     }
     set text(content) {
         this.searchEl((el) => {
+            if (el.childNodes.length) {
+                el.childNodes.forEach((cel) => {
+                    el.removeChild(cel);
+                });
+            }
             el.innerText = content;
         });
     }
     clear() {
-        this.searchEl((el) => {
-            el.innerHTML = "";
-        });
+        this.html = "aaa";
         return this;
     }
     add(content, position) {
-        let addContent;
-        if (typeof content == "string") {
-            addContent = content;
-        }
-        else {
-            addContent = content.html;
-        }
         if (!position)
             position = "beforeend";
         this.searchEl((el) => {
-            el.insertAdjacentHTML(position, addContent);
+            if (typeof content == "string") {
+                el.insertAdjacentHTML(position, content);
+            }
+            else {
+                content.elements.forEach((el2) => {
+                    if (position == "beforeend") {
+                        el.append(el2);
+                    }
+                    else if (position == "beforebegin") {
+                        el.before(el2);
+                    }
+                    else if (position == "afterend") {
+                        el.after(el2);
+                    }
+                });
+            }
         });
         return this;
     }
@@ -266,6 +215,8 @@ class VirtualDomControl {
         this.searchEl((el) => {
             el.remove();
         });
+        VDCData.refresh();
+        console.log(VDCData.buffers);
     }
     on(event, listener) {
         this.searchEl((el) => {
