@@ -9,7 +9,7 @@ class VDCData {
     
     public static buffers : {[id : string] : VDCBuffer} = {};
 
-    private static uniqId() {
+    public static uniqId() {
         const lbn : string = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         let str : string = "";
         for (let n = 0 ; n < 32 ; n++) {
@@ -57,6 +57,7 @@ class VDCData {
                     let subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
                     subEls.forEach((subEl : HTMLElement) => {
                         els.push(subEl);
+                        el.removeAttribute("v");
                     });
                 });
             }
@@ -64,14 +65,9 @@ class VDCData {
                 const buffs = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
                 buffs.forEach((el : HTMLElement)=>{
                     els.push(el);
-                });
-            }
-
-            if (els.length){
-                els.forEach((el : HTMLElement) => {
                     el.removeAttribute("v");
                 });
-            }     
+            }
         }
         else {
             // selector is HTMLElements...
@@ -140,6 +136,15 @@ class VirtualDomControl {
             buffer = VDCData.create();
         }
         this.id = buffer.id;
+        
+        if (this.tagName == "INPUT") {
+            if (this.attr("type") == "radio") {
+                const name = VDCData.uniqId();           
+                this.searchEl((el : HTMLElement) => {
+                    el.setAttribute("name", name);
+                });   
+            }
+        }
     }
 
     public static create(htmlContent?: string) : VirtualDomControl {
@@ -326,6 +331,11 @@ class VirtualDomControl {
         this.on("dblclick", listener);        
     }
 
+    public setHandle(name : string, listener : EventListenerOrEventListenerObject) {
+        
+        return this;
+    }
+
     public data(name : string) : any;
 
     public data(name : string, value : any) : VirtualDomControl;
@@ -372,19 +382,36 @@ class VirtualDomControl {
 
     public css(name: string) : string | number;
 
+    public css(name: {[name : string] : string}) : VirtualDomControl;
+
     public css(name: string, value : string | number) : VirtualDomControl;
     
-    public css(name: string, value? : string | number) : VirtualDomControl | any {
+    public css(arg1: string | {[name : string] : string}, value? : string | number) : VirtualDomControl | any {
         if (value) {
+            const name : string = arg1.toString();
             this.searchEl((el : HTMLElement) => {
                 value =value.toString();
                 el.style[name] = value;
             });
         }
         else {
-            const css = this.elFirst.style[name];
-            return css;
+            if (typeof arg1 == "string") {
+                const name : string = arg1.toString();
+                const css = this.elFirst.style[name];
+                return css;    
+            }
+            else {
+                const c = Object.keys(arg1);
+                for (let n = 0 ; n < c.length ; n++) {
+                    const name = c[n];
+                    const value = arg1[name];
+                    this.searchEl((el : HTMLElement) => {
+                        el.style[name] = value;
+                    });
+                }
+            }
         }
+        return this;
     }
 
     public removeCss(name : string) : VirtualDomControl {
@@ -394,8 +421,10 @@ class VirtualDomControl {
         return this;
     }
 
-    public get class() : string {
-        return this.elFirst.classList.toString();
+    public get class() : Array<string> {
+        const classes= this.elFirst.classList.toString();
+        const classList = classes.split(" ");
+        return classList;
     }
 
     public hasClass(name : string) : boolean {
@@ -418,17 +447,126 @@ class VirtualDomControl {
         return this;
     }
 
-    public get value() : string | Array<string | number> | number {
-
-        return "";
+    public get tagName() : string {
+        return this.elFirst.tagName;
     }
 
-    public set value(value : string | Array<string | number> | number) {
+    public get value() : string | Array<string> {
+        if (this.tagName == "INPUT") {
+            if(this.attr("type") == "radio") {
+                let value;
+                this.searchEl((el : HTMLInputElement) => {
+                    if (el.checked) {
+                        value = el.value;
+                    }
+                });
+                return value;
+            }
+            else if (this.attr("type") == "checkbox") {
+                let values = [];
+                this.searchEl((el : HTMLInputElement) => {
+                    if (el.checked) {
+                        values.push(el.value);
+                    }
+                });
+                return values;
+            }
+       }
+       // @ts-ignore
+       const element : HTMLInputElement = this.elFirst;
+       return element.value;
+    }
 
+    public set value(value : string | number | Array<string | number>) {
+        if (this.tagName == "INPUT") {
+            if (this.attr("type") == "radio") {
+                this.searchEl((el : HTMLInputElement) => {
+                    el.checked = false;
+                    if (el.value == value) {
+                        el.checked = true;
+                    }
+                });
+                return;
+            }
+            else if (this.attr("type") == "checkbox") {
+                let values : Array<string | number>;
+                if (typeof value != "object") {
+                    values = [ value ];
+                }
+                else {
+                    values = value;
+                }
+                this.checked(false);
+                this.searchEl((el : HTMLInputElement) => {
+                    values.forEach((v_) => {
+                        if (v_ == el.value) {
+                            el.checked = true;
+                        }
+                    });
+                });
+                return;
+            }
+        }
+
+        this.searchEl((el : HTMLInputElement) => {
+            el.value = value.toString();
+        });
+    }
+
+    public checked(status : boolean) : VirtualDomControl {
+        this.searchEl((el : HTMLInputElement) => {
+            el.checked = status;
+        });
+        return this;
+    }
+
+    public setPulldownEmpty(text : string) : VirtualDomControl {
+        if (this.tagName != "SELECT") return this;
+        const optionEl = document.createElement("option");
+        optionEl.setAttribute("value", "");
+        optionEl.innerText = text;
+        this.add(optionEl.outerHTML);
+        return this;
+    }
+
+    public setPulldownMenu(params : {[name : string | number] : string | Object}) : VirtualDomControl {
+        this._setPulldownMenu(params);
+        return this;
+    }
+
+    private _setPulldownMenu(params : {[name : string | number] : string | Object}, targetEl? : HTMLElement) {
+        const c = Object.keys(params);
+        for( let n = 0 ; n <c.length ; n++) {
+            const name = c[n];
+            const value = params[name];
+            if (typeof value == "object") {
+                const optGroupEl = document.createElement("optgroup");
+                optGroupEl.setAttribute("label", name.toString());
+                // @ts-ignore
+                this._setPulldownMenu(value, optGroupEl);
+                if (targetEl){
+                    targetEl.insertAdjacentHTML("beforeend", optGroupEl.outerHTML);
+                }
+                else {
+                    this.add(optGroupEl.outerHTML);
+                }
+            }
+            else {
+                const optionEl = document.createElement("option");
+                optionEl.setAttribute("value", name.toString());
+                optionEl.innerText = value.toString();
+                if (targetEl){
+                    targetEl.insertAdjacentHTML("beforeend", optionEl.outerHTML);
+                }
+                else {
+                    this.add(optionEl.outerHTML);
+                }
+            }
+        }
     }
 
     public resetValue() : VirtualDomControl {
-
+        this.value = "";
         return this;
     }
 }

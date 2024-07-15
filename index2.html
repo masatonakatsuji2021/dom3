@@ -21,6 +21,7 @@ const item = v("item");
 const addBtn = v("addBtn");
 
 let index = 0;
+
 addBtn.onClick = ()=>{
     index++;
     const stamp = item.create();
@@ -32,8 +33,6 @@ addBtn.onClick = ()=>{
         const index = items.editBtn.data("index");
         alert("add button click .... ok\nIndex = " + index);
     };
-
-    console.log(items.editBtn);
 
     items.deleteBtn.data("index", index).onClick = () => {
         const index = items.deleteBtn.data("index");

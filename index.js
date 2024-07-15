@@ -41,6 +41,7 @@ class VDCData {
                     let subEls = el.querySelectorAll("[v=\"" + selector + "\"]");
                     subEls.forEach((subEl) => {
                         els.push(subEl);
+                        el.removeAttribute("v");
                     });
                 });
             }
@@ -48,10 +49,6 @@ class VDCData {
                 const buffs = Object.values(document.querySelectorAll("[v=\"" + selector + "\"]"));
                 buffs.forEach((el) => {
                     els.push(el);
-                });
-            }
-            if (els.length) {
-                els.forEach((el) => {
                     el.removeAttribute("v");
                 });
             }
@@ -119,6 +116,14 @@ class VirtualDomControl {
             buffer = VDCData.create();
         }
         this.id = buffer.id;
+        if (this.tagName == "INPUT") {
+            if (this.attr("type") == "radio") {
+                const name = VDCData.uniqId();
+                this.searchEl((el) => {
+                    el.setAttribute("name", name);
+                });
+            }
+        }
     }
     static create(htmlContent) {
         const res = new VirtualDomControl();
@@ -270,6 +275,9 @@ class VirtualDomControl {
     set onDblclick(listener) {
         this.on("dblclick", listener);
     }
+    setHandle(name, listener) {
+        return this;
+    }
     data(name, value) {
         if (value) {
             VDCData.buffers[this.id].data[name] = value;
@@ -303,17 +311,32 @@ class VirtualDomControl {
         });
         return this;
     }
-    css(name, value) {
+    css(arg1, value) {
         if (value) {
+            const name = arg1.toString();
             this.searchEl((el) => {
                 value = value.toString();
                 el.style[name] = value;
             });
         }
         else {
-            const css = this.elFirst.style[name];
-            return css;
+            if (typeof arg1 == "string") {
+                const name = arg1.toString();
+                const css = this.elFirst.style[name];
+                return css;
+            }
+            else {
+                const c = Object.keys(arg1);
+                for (let n = 0; n < c.length; n++) {
+                    const name = c[n];
+                    const value = arg1[name];
+                    this.searchEl((el) => {
+                        el.style[name] = value;
+                    });
+                }
+            }
         }
+        return this;
     }
     removeCss(name) {
         this.searchEl((el) => {
@@ -322,7 +345,9 @@ class VirtualDomControl {
         return this;
     }
     get class() {
-        return this.elFirst.classList.toString();
+        const classes = this.elFirst.classList.toString();
+        const classList = classes.split(" ");
+        return classList;
     }
     hasClass(name) {
         return this.elFirst.classList.contains(name);
@@ -341,12 +366,119 @@ class VirtualDomControl {
         this.elFirst.classList.remove(...name);
         return this;
     }
+    get tagName() {
+        return this.elFirst.tagName;
+    }
     get value() {
-        return "";
+        if (this.tagName == "INPUT") {
+            if (this.attr("type") == "radio") {
+                let value;
+                this.searchEl((el) => {
+                    if (el.checked) {
+                        value = el.value;
+                    }
+                });
+                return value;
+            }
+            else if (this.attr("type") == "checkbox") {
+                let values = [];
+                this.searchEl((el) => {
+                    if (el.checked) {
+                        values.push(el.value);
+                    }
+                });
+                return values;
+            }
+        }
+        // @ts-ignore
+        const element = this.elFirst;
+        return element.value;
     }
     set value(value) {
+        if (this.tagName == "INPUT") {
+            if (this.attr("type") == "radio") {
+                this.searchEl((el) => {
+                    el.checked = false;
+                    if (el.value == value) {
+                        el.checked = true;
+                    }
+                });
+                return;
+            }
+            else if (this.attr("type") == "checkbox") {
+                let values;
+                if (typeof value != "object") {
+                    values = [value];
+                }
+                else {
+                    values = value;
+                }
+                this.checked(false);
+                this.searchEl((el) => {
+                    values.forEach((v_) => {
+                        if (v_ == el.value) {
+                            el.checked = true;
+                        }
+                    });
+                });
+                return;
+            }
+        }
+        this.searchEl((el) => {
+            el.value = value.toString();
+        });
+    }
+    checked(status) {
+        this.searchEl((el) => {
+            el.checked = status;
+        });
+        return this;
+    }
+    setPulldownEmpty(text) {
+        if (this.tagName != "SELECT")
+            return this;
+        const optionEl = document.createElement("option");
+        optionEl.setAttribute("value", "");
+        optionEl.innerText = text;
+        this.add(optionEl.outerHTML);
+        return this;
+    }
+    setPulldownMenu(params) {
+        this._setPulldownMenu(params);
+        return this;
+    }
+    _setPulldownMenu(params, targetEl) {
+        const c = Object.keys(params);
+        for (let n = 0; n < c.length; n++) {
+            const name = c[n];
+            const value = params[name];
+            if (typeof value == "object") {
+                const optGroupEl = document.createElement("optgroup");
+                optGroupEl.setAttribute("label", name.toString());
+                // @ts-ignore
+                this._setPulldownMenu(value, optGroupEl);
+                if (targetEl) {
+                    targetEl.insertAdjacentHTML("beforeend", optGroupEl.outerHTML);
+                }
+                else {
+                    this.add(optGroupEl.outerHTML);
+                }
+            }
+            else {
+                const optionEl = document.createElement("option");
+                optionEl.setAttribute("value", name.toString());
+                optionEl.innerText = value.toString();
+                if (targetEl) {
+                    targetEl.insertAdjacentHTML("beforeend", optionEl.outerHTML);
+                }
+                else {
+                    this.add(optionEl.outerHTML);
+                }
+            }
+        }
     }
     resetValue() {
+        this.value = "";
         return this;
     }
 }

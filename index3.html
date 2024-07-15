@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<div v="test1">Test1 Sample Test1 Sample .... </div>
+<div v="test2">Test2 Sample Test2 Sample .... </div>
+
+<p>Input1</p>
+<p><input type="text" v="input1"></p>
+
+<p>input2</p>
+<textarea v="input2"></textarea>
+
+<p>input3</p>
+<select v="input3"></select>
+
+<p>input4</p>
+<label><input type="radio" v="input4" value="1">Radio1</label>
+<label><input type="radio" v="input4" value="2">Radio2</label>
+<label><input type="radio" v="input4" value="3">Radio3</label>
+<label><input type="radio" v="input4" value="4">Radio4</label>
+<label><input type="radio" v="input4" value="5">Radio5</label>
+
+<p>Input5</p>
+<label><input type="checkbox" v="Input5" value="1">Check1</label>
+<label><input type="checkbox" v="Input5" value="2">Check2</label>
+<label><input type="checkbox" v="Input5" value="3">Check3</label>
+<label><input type="checkbox" v="Input5" value="4">Check4</label>
+<label><input type="checkbox" v="Input5" value="5">Check5</label>
+<label><input type="checkbox" v="Input5" value="6">Check6</label>
+
+<br><br>
+
+<button v="setBtn1">Set pattern1</button>
+<button v="setBtn2">Set pattern2</button>
+<button v="resetBtn">reset</button>
+<br><br>
+<button v="sendBtn">Send</button>
+
+<script src="index.js"></script>
+<script>
+const test1 = v("test1");
+const test2 = v("test2");
+
+test1
+    .css("background", "green")
+    .css("color", "white")
+    .css("padding", "10px")
+;
+
+test2.css({
+    background:"blue",
+    color:"white",
+    padding:"10px",
+});
+
+test2.addClass("active").addClass(["aa","bbb", "cccc"]);
+console.log(test2.class);
+
+//------------------------------------------------------
+
+const input1 = v("input1");
+const input2 = v("input2");
+const input3 = v("input3");
+const input4 = v("input4");
+const Input5 = v("Input5");
+const setBtn1 = v("setBtn1");
+const setBtn2 = v("setBtn2");
+const resetBtn = v("resetBtn");
+const sendBtn = v("sendBtn");
+
+input3
+    .setPulldownEmpty("--- Select Menu ---")
+    .setPulldownMenu({
+        aaaa: "TYPE A",
+        bbbb: "TYPE B",
+        cccc: "TYPE C",
+        dddd: "TYPE D",
+        "Group - A" : {
+            eeee: "Type E",
+            fffff: "Type F",
+            gggg: "Type G",
+        },
+        "Group B": {
+            hhhh: "Type H",
+        }
+    })
+;
+
+setBtn1.onClick = ()=>{
+    input1.value = "Add Text Value..";
+    input2.value = "Add Text Value TextArea..";
+    input3.value = "cccc";
+    input4.value = 3;
+    Input5.value = [2, 4];
+};
+setBtn2.onClick = ()=>{
+    input1.value = "NNNNNNNNNNN";
+    input2.value = "SSSSSSRRRR...RRRRRRRRRR......";
+    input3.value = "fffff";
+    input4.value = 5;
+    Input5.value = [1, 3, 5];
+};
+resetBtn.onClick = ()=>{
+    input1.resetValue();
+    input2.resetValue();
+    input3.resetValue();
+    input4.resetValue();
+    Input5.resetValue();
+};
+sendBtn.onClick = () =>{
+    console.log({
+        input1: input1.value,
+        input2: input2.value,
+        input3: input3.value,
+        input4: input4.value,
+        Input5: Input5.value,
+    });
+};
+</script>
+
+</body>
+</html>
